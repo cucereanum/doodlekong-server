@@ -1,6 +1,6 @@
 package mariodev.session
 
 data class DrawingSession(
-    val clientIt: String,
+    val clientId: String,
     val sessionId: String
 )
