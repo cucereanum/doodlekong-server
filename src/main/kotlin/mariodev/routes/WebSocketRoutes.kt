@@ -6,38 +6,79 @@ import io.ktor.routing.*
 import io.ktor.sessions.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.consumeEach
-import mariodev.data.models.BaseModel
-import mariodev.data.models.ChatMessage
+import mariodev.data.Player
+import mariodev.data.Room
+import mariodev.data.models.*
 import mariodev.gson
+import mariodev.server
 import mariodev.session.DrawingSession
+import mariodev.util.Constants.TYPE_ANNOUNCEMENT
 import mariodev.util.Constants.TYPE_CHAT_MESSAGE
+import mariodev.util.Constants.TYPE_DRAW_DATA
+import mariodev.util.Constants.TYPE_JOIN_ROOM_HANDSHAKE
+
+
+fun Route.gameWebSockerRoute() {
+    route("/ws/draw") {
+        standardWebSocket { socket, clientId, message, payload ->
+            when (payload) {
+                is JoinRoomHandshake -> {
+                    val room = server.rooms[payload.roomName]
+                    if (room == null) {
+                        val gameError = GameError(GameError.ERROR_ROOM_NOT_FOUND)
+                        socket.send(Frame.Text(gson.toJson(gameError)))
+                        return@standardWebSocket
+                    }
+                    val player = Player(payload.username, socket, payload.clientId)
+                    server.playerJoined(player)
+                    if (room.containsPlayer(player.username)) {
+                        room.addPlayer(player.clientId, player.username, socket)
+                    }
+                }
+
+                is DrawData -> {
+                    val room = server.rooms[payload.roomName] ?: return@standardWebSocket
+                    if (room.phase == Room.Phase.GAME_RUNNING) {
+                        room.broadcastToAllExcept(message, clientId)
+                    }
+                }
+
+                is ChatMessage -> {
+
+                }
+            }
+        }
+    }
+}
 
 fun Route.standardWebSocket(
     handleFrame: suspend (socket: DefaultWebSocketServerSession, clientId: String, message: String, payload: BaseModel) -> Unit
 ) {
     webSocket {
         val session = call.sessions.get<DrawingSession>()
-        if(session == null) {
+        if (session == null) {
             close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "No session."))
             return@webSocket
         }
         try {
-            incoming.consumeEach {
-              frame ->  if(frame is Frame.Text) {
-                  val message = frame.readText()
-                val jsonObject = JsonParser.parseString(message).asJsonObject
-                val type = when(jsonObject.get("type").asString) {
-                    TYPE_CHAT_MESSAGE -> ChatMessage::class.java
-                    else -> BaseModel::class.java
+            incoming.consumeEach { frame ->
+                if (frame is Frame.Text) {
+                    val message = frame.readText()
+                    val jsonObject = JsonParser.parseString(message).asJsonObject
+                    val type = when (jsonObject.get("type").asString) {
+                        TYPE_CHAT_MESSAGE -> ChatMessage::class.java
+                        TYPE_DRAW_DATA -> DrawData::class.java
+                        TYPE_ANNOUNCEMENT -> Announcement::class.java
+                        TYPE_JOIN_ROOM_HANDSHAKE -> JoinRoomHandshake::class.java
+                        else -> BaseModel::class.java
+                    }
+                    val payload = gson.fromJson(message, type)
+                    handleFrame(this, session.clientId, message, payload)
                 }
-                val payload = gson.fromJson(message, type)
-                handleFrame(this, session.clientId, message, payload)
             }
-            }
-        }catch (e: Exception) {
+        } catch (e: Exception) {
             e.printStackTrace()
-        }
-        finally {
+        } finally {
             // TODO: Handle disconnets
         }
     }

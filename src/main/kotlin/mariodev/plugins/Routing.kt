@@ -6,6 +6,7 @@ import io.ktor.application.*
 import io.ktor.response.*
 import io.ktor.request.*
 import mariodev.routes.createRoomRoute
+import mariodev.routes.gameWebSockerRoute
 import mariodev.routes.getRoomsRoute
 import mariodev.routes.joinRoomRoute
 
@@ -14,5 +15,6 @@ fun Application.configureRouting() {
         createRoomRoute()
         getRoomsRoute()
         joinRoomRoute()
+        gameWebSockerRoute()
     }
 }
