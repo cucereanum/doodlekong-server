@@ -14,8 +14,11 @@ import mariodev.server
 import mariodev.session.DrawingSession
 import mariodev.util.Constants.TYPE_ANNOUNCEMENT
 import mariodev.util.Constants.TYPE_CHAT_MESSAGE
+import mariodev.util.Constants.TYPE_CHOSEN_WORD
 import mariodev.util.Constants.TYPE_DRAW_DATA
+import mariodev.util.Constants.TYPE_GAME_STATE
 import mariodev.util.Constants.TYPE_JOIN_ROOM_HANDSHAKE
+import mariodev.util.Constants.TYPE_PHASE_CHANGE
 
 
 fun Route.gameWebSockerRoute() {
@@ -43,8 +46,16 @@ fun Route.gameWebSockerRoute() {
                     }
                 }
 
-                is ChatMessage -> {
+                is ChosenWord -> {
+                    val room = server.rooms[payload.roomName] ?: return@standardWebSocket
+                    room.setWordAndSwitchToGameRunning(payload.chosenWord)
+                }
 
+                is ChatMessage -> {
+                    val room = server.rooms[payload.roomName] ?: return@standardWebSocket
+                    if(!room.checkWordAndNotifyPlayers(payload)) {
+                        room.broadcast(message)
+                    }
                 }
             }
         }
@@ -70,6 +81,9 @@ fun Route.standardWebSocket(
                         TYPE_DRAW_DATA -> DrawData::class.java
                         TYPE_ANNOUNCEMENT -> Announcement::class.java
                         TYPE_JOIN_ROOM_HANDSHAKE -> JoinRoomHandshake::class.java
+                        TYPE_PHASE_CHANGE -> PhaseChange::class.java
+                        TYPE_CHOSEN_WORD -> ChosenWord::class.java
+                        TYPE_GAME_STATE -> GameState::class.java
                         else -> BaseModel::class.java
                     }
                     val payload = gson.fromJson(message, type)
