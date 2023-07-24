@@ -254,6 +254,7 @@ class Room(
     private fun gameRunning() {
         winningPlayers = listOf()
         val wordToSend = word ?: curWords?.random() ?: words.random()
+        word = wordToSend
         val wordWithUnderscores = wordToSend.transformToUnderscores()
         val drawingUsername = (drawingPlayer ?: players.random()).username
         val gameStateForDrawingPlayer = GameState(
@@ -388,6 +389,8 @@ class Room(
 
         if (drawingPlayerIndex < players.size - 1) drawingPlayerIndex++
         else drawingPlayerIndex = 0
+
+        drawingPlayer?.isDrawing = true
     }
 
     private fun kill() {

@@ -2,10 +2,10 @@ package mariodev.util
 
 import java.io.File
 
-val words = readWordList("resources/programmers_wordlist.txt")
+val words = readWordList()
 
-fun readWordList(fileName: String): List<String> {
-    val inputStream = File(fileName).inputStream()
+fun readWordList(): List<String> {
+    val inputStream = File("src/main/resources/programmers_wordlist.txt").inputStream()
     val words = mutableListOf<String>()
 
     inputStream.bufferedReader().forEachLine {
